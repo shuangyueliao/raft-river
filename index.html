@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="description" content="Raft River — ride an endless river, dodge rocks and whirlpools, collect bottles and gold. Free single-file HTML5 game.">
+<title>Raft River · Endless River Rafting</title>
+<script>
+// 平台 SDK 按域名条件加载（独立运行时完全不加载，游戏行为不变）
+(function () {
+  var host = location.hostname || "";
+  try {
+    if (host.indexOf("crazygames") !== -1) {
+      var s1 = document.createElement("script");
+      s1.src = "https://sdk.crazygames.com/crazygames-sdk-v3.js";
+      s1.onload = function () {
+        if (window.CrazyGames && window.CrazyGames.SDK) {
+          window.CrazyGames.SDK.init().then(function () {
+            try { window.CrazyGames.SDK.game.loadingStart(); } catch (e) {}
+            window.addEventListener("load", function () { try { window.CrazyGames.SDK.game.loadingStop(); } catch (e) {} });
+          }).catch(function () {});
+        }
+      };
+      document.head.appendChild(s1);
+      window.__portal = "crazygames";
+    } else if (host.indexOf("gamedistribution") !== -1 || host.indexOf("html5.gamedistribution.com") !== -1 || host.indexOf("gd.games") !== -1) {
+      var s2 = document.createElement("script");
+      s2.src = "https://sdk.gamedistribution.com/v2/main.min.js";
+      document.head.appendChild(s2);
+      window.__portal = "gamedistribution";
+    }
+  } catch (e) {}
+})();
+</script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; overflow:hidden; background:#0b2530; font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; }
+  #wrap { height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  #hud { width:100%; max-width:540px; display:flex; align-items:center; justify-content:space-between; padding:8px 14px 4px; color:#eaf6ff; }
+  .stat { text-align:center; }
+  .stat .label { font-size:10px; color:#7fb3c8; letter-spacing:1px; }
+  .stat .val { font-size:19px; font-weight:800; line-height:1.15; }
+  #lives svg { width:14px; height:14px; margin:0 1px; vertical-align:middle; }
+  #lives svg.dim path { fill:#2c4a58; }
+  #muteBtn { background:#123240; border:1px solid #29586c; border-radius:9px; width:36px; height:32px; cursor:pointer; padding:5px; }
+  #muteBtn svg { width:100%; height:100%; stroke:#cfeaf5; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  canvas { display:block; touch-action:none; border-radius:12px; }
+  #overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(4,16,24,.74); z-index:5; border-radius:12px; }
+  #panel { background:#0f2a36; border:1px solid #2a5a70; border-radius:18px; padding:24px 28px; text-align:center; color:#fff; max-width:330px; }
+  #panel h1 { font-size:25px; color:#ffd76a; letter-spacing:2px; margin-bottom:6px; }
+  #panel h2 { font-size:22px; margin-bottom:6px; }
+  #panel p { color:#9cc4d4; font-size:13px; margin-bottom:9px; line-height:1.45; }
+  #panel .final { font-size:30px; font-weight:900; color:#ffd76a; margin:6px 0 2px; }
+  #panel .sub { color:#8fb9ca; font-size:12px; margin-bottom:8px; }
+  #newBest { display:none; color:#7dffa8; font-weight:800; font-size:14px; margin-bottom:8px; }
+  .btn { background:linear-gradient(135deg,#2fa3d6,#1d7fae); color:#fff; border:none; border-radius:12px; padding:12px 36px; font-size:16px; font-weight:800; cursor:pointer; margin-top:6px; }
+  .btn:active { transform:scale(.97); }
+  #pauseTip { position:absolute; top:14px; left:50%; transform:translateX(-50%); background:#0f2a36; border:1px solid #2a5a70; color:#cfeaf5; font-size:13px; font-weight:700; border-radius:10px; padding:8px 16px; display:none; z-index:6; }
+  #footer { color:#5b8296; font-size:11px; padding:6px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="hud">
+    <div class="stat"><div class="label">SCORE</div><div class="val" id="score">0</div></div>
+    <div class="stat"><div class="label">DIST</div><div class="val"><span id="dist">0</span><span style="font-size:11px"> m</span></div></div>
+    <div class="stat"><div class="label">LIVES</div><div class="val" id="lives">
+      <svg viewBox="0 0 16 16"><path d="M8 14.2C8 14.2 1.6 9.8 1.6 5.6 1.6 3.5 3.2 2 5.1 2 6.3 2 7.4 2.7 8 3.7 8.6 2.7 9.7 2 10.9 2 12.8 2 14.4 3.5 14.4 5.6 14.4 9.8 8 14.2 8 14.2Z" fill="#ff5d6c"/></svg>
+      <svg viewBox="0 0 16 16"><path d="M8 14.2C8 14.2 1.6 9.8 1.6 5.6 1.6 3.5 3.2 2 5.1 2 6.3 2 7.4 2.7 8 3.7 8.6 2.7 9.7 2 10.9 2 12.8 2 14.4 3.5 14.4 5.6 14.4 9.8 8 14.2 8 14.2Z" fill="#ff5d6c"/></svg>
+      <svg viewBox="0 0 16 16"><path d="M8 14.2C8 14.2 1.6 9.8 1.6 5.6 1.6 3.5 3.2 2 5.1 2 6.3 2 7.4 2.7 8 3.7 8.6 2.7 9.7 2 10.9 2 12.8 2 14.4 3.5 14.4 5.6 14.4 9.8 8 14.2 8 14.2Z" fill="#ff5d6c"/></svg>
+    </div></div>
+    <div class="stat"><div class="label">BEST</div><div class="val" id="best">0</div></div>
+    <button id="muteBtn" aria-label="Toggle sound">
+      <svg id="icoOn" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="#cfeaf5" stroke="none"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>
+      <svg id="icoOff" viewBox="0 0 24 24" style="display:none"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="#cfeaf5" stroke="none"/><path d="M17 9l5 6M22 9l-5 6"/></svg>
+    </button>
+  </div>
+  <div style="position:relative">
+    <canvas id="game"></canvas>
+    <div id="overlay">
+      <div id="panel">
+        <div id="startPanel">
+          <h1>RAFT RIVER</h1>
+          <p>Ride the endless current. Dodge rocks, whirlpools and drifting logs. Snag bottles, fish and gold — every 500 m restores a life.</p>
+          <p class="sub">&larr; &rarr; arrow keys or drag to steer</p>
+          <p class="sub" id="startBest">BEST 0 pts &middot; 0 m</p>
+          <button class="btn" id="playBtn">SET SAIL</button>
+        </div>
+        <div id="overPanel" style="display:none">
+          <h2>WASHED OUT!</h2>
+          <div class="final" id="finalScore">0</div>
+          <p class="sub" id="finalDist">0 m traveled</p>
+          <p class="sub" id="finalBest">BEST 0 pts &middot; 0 m</p>
+          <div id="newBest">NEW BEST!</div>
+          <button class="btn" id="againBtn">RAFT AGAIN</button>
+        </div>
+      </div>
+    </div>
+    <div id="pauseTip">PAUSED &mdash; tap to resume</div>
+  </div>
+  <div id="footer">Raft River &mdash; a free river rafting game</div>
+</div>
+<script>
+"use strict";
+/*<LOGIC>*/
+// ============ 纯逻辑区：无 DOM 依赖，可整段抽出做 Node 单元测试 ============
+var VW = 480;                        // 虚拟视口宽
+var RAFT_W = 34, RAFT_L = 50;        // 木筏碰撞盒
+var CORRIDOR = RAFT_W * 1.5;         // 生成硬保证：任意横截面最小可通行宽度
+var PPM = 24;                        // 24px = 1m
+var SUCK_T = 1.0, IMMUNE_T = 2.5;    // 漩涡：吸入失控 1 秒，释放后 2.5 秒不再吸
+var SUCK_R = 46;                     // 漩涡吸入半径（生成时按此占位）
+var HZ_IMMUNE_T = 1.2;               // 撞击后的受伤免疫
+var ROW_MIN = 150, ROW_MAX = 220;    // 障碍行距
+var SAFE_STEP = 55;                  // 安全走廊每行最大水平位移
+var BANK = 40;                       // 两岸最小沙滩宽
+
+function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+function lerp(a, b, u) { return a + (b - a) * u; }
+function mulberry32(seed) {
+  var t = seed >>> 0;
+  return function () {
+    t = (t + 0x6D2B79F5) >>> 0;
+    var r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r;
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// 规划一个河段；prev = 上一段收尾边缘 {l,r}；每三段大概率出现一个带岛的岔口段
+function planBand(prev, y0, idx, rng) {
+  var len = 820 + Math.floor(rng() * 420);
+  var isFork = idx > 0 && idx % 3 === 2 && rng() < 0.85;
+  var cw0 = 280 + Math.floor(rng() * 60);
+  var cw1 = isFork ? Math.min(cw0 + 90, 396) : 280 + Math.floor(rng() * 60);
+  var pc = (prev.l + prev.r) / 2;
+  var c0 = clamp(pc + (rng() * 2 - 1) * 60, BANK + cw0 / 2, VW - BANK - cw0 / 2);
+  var c1 = clamp(pc + (rng() * 2 - 1) * 80, BANK + cw1 / 2, VW - BANK - cw1 / 2);
+  var b = { y0: y0, y1: y0 + len, type: isFork ? "fork" : "open",
+    L0: c0 - cw0 / 2, R0: c0 + cw0 / 2, L1: c1 - cw1 / 2, R1: c1 + cw1 / 2,
+    H: 30 + Math.floor(rng() * 14), narrow: 0, T: 240 };
+  if (isFork) b.narrow = rng() < 0.5 ? -1 : 1;
+  return b;
+}
+
+// 河段在纵向位置 y 的水道区间列表（岛两端 T 像素内渐入渐出，宽度过窄不分岔）
+function waterAt(b, y) {
+  var u = clamp((y - b.y0) / (b.y1 - b.y0), 0, 1);
+  var L = lerp(b.L0, b.L1, u), R = lerp(b.R0, b.R1, u);
+  if (b.type !== "fork" || R - L < 300) return [[L, R]];
+  var p = clamp((y - b.y0) / b.T, 0, 1) * clamp((b.y1 - y) / b.T, 0, 1);
+  if (p < 0.06) return [[L, R]];
+  var hw = b.H * p;
+  var inner = (R - L) - 2 * hw;
+  var lf = lerp(0.5, b.narrow === -1 ? 0.40 : 0.58, p); // 左水道占内宽比例（窄道 40%）
+  var M = L + inner * lf + hw;
+  return [[L, M - hw], [M + hw, R]];
+}
+
+// 生成一个河段的障碍与收集物；安全走廊逐行游走，任何障碍足迹不得侵入走廊
+function genBandContent(b, idx, rng) {
+  var obs = [], col = [];
+  var diff = clamp(idx / 14, 0, 1);
+  var safe = [null, null];
+  var whirlBudget = idx > 2 ? (rng() < 0.5 + diff * 0.4 ? 2 : 1) : 0;
+  var y = b.y0 + 70;
+  while (true) {
+    y += ROW_MIN + rng() * (ROW_MAX - ROW_MIN);
+    if (y > b.y1 - 60) break;
+    var ints = waterAt(b, y);
+    for (var ci = 0; ci < ints.length; ci++) {
+      var l = ints[ci][0], r = ints[ci][1];
+      var isNarrow = ints.length === 2 && ((ci === 0 && b.narrow === -1) || (ci === 1 && b.narrow === 1));
+      if (r - l < CORRIDOR + 46) { safe[ci] = null; continue; } // 太窄的口不生成障碍
+      var half = CORRIDOR / 2 + 6;
+      var sx = safe[ci] == null ? (l + r) / 2 : safe[ci] + (rng() * 2 - 1) * SAFE_STEP;
+      sx = clamp(sx, l + half, r - half);
+      safe[ci] = sx;
+      var placed = [];
+      var n = isNarrow ? (rng() < 0.55 + diff * 0.25 ? 1 : 0) : 1;
+      if (!isNarrow) { if (rng() < 0.30 + diff * 0.5) n++; if (rng() < diff * 0.35) n++; }
+      for (var k = 0; k < n; k++) {
+        var roll = rng(), fp, o;
+        if (isNarrow) { fp = 13 + rng() * 7; o = { t: "rock", y: y, r: fp, seed: rng() * 7 }; }
+        else if (roll < 0.50) { fp = 14 + rng() * 10; o = { t: "rock", y: y, r: fp, seed: rng() * 7 }; }
+        else if (roll < 0.76) { // 浮木横漂：足迹按摆幅放大，保证漂到头也不进走廊
+          var amp = 14 + rng() * 20, hw2 = 42 + rng() * 24;
+          fp = hw2 + amp; o = { t: "log", y: y, w: hw2 * 2, h: 20, amp: amp, ph: rng() * 6.28, sp: 0.5 + rng() * 0.7 };
+        } else if (whirlBudget > 0) { fp = SUCK_R; o = { t: "whirl", y: y }; }
+        else { fp = 14 + rng() * 10; o = { t: "rock", y: y, r: fp, seed: rng() * 7 }; }
+        // 允许区 = 水道去掉安全走廊；足迹必须整体落在允许区内
+        var segs = [[l + 5, sx - half], [sx + half, r - 5]], pick = null;
+        for (var s = 0; s < 2; s++) if (segs[s][1] - segs[s][0] >= fp * 2 + 4) { pick = segs[s]; if (rng() < 0.6) break; }
+        if (!pick) continue;
+        var cx = pick[0] + fp + rng() * Math.max(4, pick[1] - pick[0] - fp * 2);
+        cx = clamp(cx, pick[0] + fp, pick[1] - fp);
+        var clash = false;
+        for (var q = 0; q < placed.length; q++) if (Math.abs(cx - placed[q]) < fp + 26) clash = true;
+        if (clash) continue;
+        placed.push(cx);
+        o.x = cx;
+        if (o.t === "whirl") whirlBudget--;
+        obs.push(o);
+      }
+      // 收集物（不阻挡，可落在走廊上；窄道金币多=高风险高奖励）
+      var rr = rng();
+      if (isNarrow && rr < 0.55) {
+        var cn = 3 + Math.floor(rng() * 3);
+        for (var i = 0; i < cn; i++) col.push({ t: "coin", x: clamp(sx + (rng() * 2 - 1) * 24, l + 16, r - 16), y: y - 70 + i * 46 });
+      } else if (!isNarrow && rr < 0.10) {
+        col.push({ t: "bottle", x: clamp(sx + (rng() * 2 - 1) * 14, l + 16, r - 16), y: y + 60 });
+      } else if (!isNarrow && rr < 0.20) {
+        col.push({ t: "fish", x: clamp((l + r) / 2 + (rng() * 2 - 1) * 60, l + 34, r - 34), y: y + 30, ph: rng() * 6.28 });
+      } else if (rr < 0.30) {
+        col.push({ t: "coin", x: sx, y: y + 110 });
+      }
+    }
+  }
+  col.sort(function (a, b2) { return a.y - b2.y; });
+  return { obs: obs, col: col };
+}
+
+// 世界容器：按需生成前方河段（同种子确定性）
+function makeWorld(seed) {
+  var rngB = mulberry32(seed);
+  var bands = [], obs = [], col = [], trees = [];
+  var prev = { l: 160, r: 320 };
+  var api = {
+    bands: bands, obs: obs, col: col, trees: trees, o0: 0, c0: 0, t0: 0,
+    ensure: function (uptoY) {
+      while (!bands.length || bands[bands.length - 1].y1 < uptoY) {
+        var idx = bands.length;
+        var b = planBand(prev, idx ? bands[idx - 1].y1 : 0, idx, rngB);
+        prev = { l: b.L1, r: b.R1 };
+        bands.push(b);
+        var c = genBandContent(b, idx, mulberry32((seed ^ Math.imul(idx + 1, 0x9E3779B9)) >>> 0));
+        for (var i = 0; i < c.obs.length; i++) obs.push(c.obs[i]);
+        for (var j = 0; j < c.col.length; j++) col.push(c.col[j]);
+        // 岸边与沙洲的树（纯装饰）
+        var rngT = mulberry32((seed ^ Math.imul(idx + 1, 0x55555555)) >>> 0);
+        var nT = Math.floor((b.y1 - b.y0) / 30);
+        for (var ti = 0; ti < nT; ti++) {
+          var wy = b.y0 + 20 + rngT() * (b.y1 - b.y0 - 40);
+          var ints2 = waterAt(b, wy), side = rngT(), xx, ok = false;
+          if (ints2.length === 1) {
+            if (side < 0.45 && ints2[0][0] > 26) { xx = rngT() * (ints2[0][0] - 18); ok = true; }
+            else if (side > 0.55 && VW - ints2[0][1] > 26) { xx = ints2[0][1] + 18 + rngT() * (VW - ints2[0][1] - 18); ok = true; }
+          } else {
+            if (side < 0.4 && ints2[0][0] > 26) { xx = rngT() * (ints2[0][0] - 18); ok = true; }
+            else if (side > 0.6 && VW - ints2[1][1] > 26) { xx = ints2[1][1] + 18 + rngT() * (VW - ints2[1][1] - 18); ok = true; }
+            else { var il = ints2[0][1] + 14, ir = ints2[1][0] - 14; if (ir - il > 20) { xx = il + rngT() * (ir - il); ok = true; } }
+          }
+          if (ok) trees.push({ x: xx, y: wy, r: 6 + rngT() * 9, g: rngT() });
+        }
+      }
+    }
+  };
+  return api;
+}
+
+// 漩涡状态机：0 正常 → 1 吸入旋转（SUCK_T 秒失控）→ 2 免疫（IMMUNE_T 秒不再吸）→ 0
+function newWhirlState() { return { phase: 0, t: 0, wx: 0, wyW: 0 }; }
+function whirlTrySuck(ws, dx, dy) {
+  if (ws.phase !== 0) return false;
+  if (dx * dx + dy * dy > SUCK_R * SUCK_R) return false;
+  ws.phase = 1; ws.t = SUCK_T; return true;
+}
+function stepWhirlState(ws, dt) {
+  if (ws.phase === 0) return ws;
+  ws.t -= dt;
+  if (ws.t <= 0) {
+    if (ws.phase === 1) { ws.phase = 2; ws.t = IMMUNE_T; }
+    else { ws.phase = 0; ws.t = 0; }
+  }
+  return ws;
+}
+
+// 碰撞：筏（AABB）vs 岩（圆） / 浮木（AABB），坐标同系
+function hitRock(rx, ry, rock) {
+  var cx = clamp(rock.x, rx - RAFT_W / 2, rx + RAFT_W / 2);
+  var cy = clamp(rock.y, ry - RAFT_L / 2, ry + RAFT_L / 2);
+  var dx = rock.x - cx, dy = rock.y - cy;
+  return dx * dx + dy * dy < rock.r * rock.r;
+}
+function hitLog(rx, ry, log) {
+  var lx = log.x - log.w / 2, ly = log.y - log.h / 2;
+  return rx + RAFT_W / 2 > lx && rx - RAFT_W / 2 < lx + log.w &&
+         ry + RAFT_L / 2 > ly && ry - RAFT_L / 2 < ly + log.h;
+}
+
+// 横截面自由水道宽度：y 处水道区间减去障碍足迹后的最大连续空隙（测试/校验用）
+function freeGapAt(bands, obs, y) {
+  var ints = null;
+  for (var i = 0; i < bands.length; i++) if (y >= bands[i].y0 && y < bands[i].y1) { ints = waterAt(bands[i], y); break; }
+  if (!ints) return -1;
+  var blocks = [];
+  for (var k = 0; k < obs.length; k++) {
+    var o = obs[k], fv, x0, x1;
+    if (o.t === "rock") { fv = o.r; x0 = o.x - o.r; x1 = o.x + o.r; }
+    else if (o.t === "log") { fv = o.h / 2 + 2; x0 = o.x - o.w / 2 - o.amp; x1 = o.x + o.w / 2 + o.amp; }
+    else { fv = SUCK_R; x0 = o.x - SUCK_R; x1 = o.x + SUCK_R; }
+    if (y >= o.y - fv && y <= o.y + fv) blocks.push([x0, x1]);
+  }
+  blocks.sort(function (a, b2) { return a[0] - b2[0]; });
+  var best = 0;
+  for (var c = 0; c < ints.length; c++) {
+    var cursor = ints[c][0], end = ints[c][1];
+    for (var bi = 0; bi < blocks.length; bi++) {
+      var bl = blocks[bi];
+      if (bl[1] <= cursor || bl[0] >= end) continue;
+      if (bl[0] > cursor) best = Math.max(best, Math.min(bl[0], end) - cursor);
+      cursor = Math.max(cursor, bl[1]);
+      if (cursor >= end) break;
+    }
+    best = Math.max(best, end - cursor);
+  }
+  return best;
+}
+
+function riverSpeedAt(dist) { return 132 + Math.min(213, dist / 55); }
+
+var __RR = { VW: VW, RAFT_W: RAFT_W, RAFT_L: RAFT_L, CORRIDOR: CORRIDOR, PPM: PPM, SUCK_T: SUCK_T, IMMUNE_T: IMMUNE_T, SUCK_R: SUCK_R,
+  clamp: clamp, lerp: lerp, mulberry32: mulberry32, planBand: planBand, waterAt: waterAt, genBandContent: genBandContent, makeWorld: makeWorld,
+  newWhirlState: newWhirlState, whirlTrySuck: whirlTrySuck, stepWhirlState: stepWhirlState,
+  hitRock: hitRock, hitLog: hitLog, freeGapAt: freeGapAt, riverSpeedAt: riverSpeedAt };
+if (typeof module !== "undefined" && module.exports) module.exports = __RR;
+/*</LOGIC>*/
+
+// ================= DOM / 游戏区 =================
+var canvas = document.getElementById("game");
+var ctx = canvas.getContext("2d");
+var dpr = Math.min(window.devicePixelRatio || 1, 2);
+var VH = 720, anchorY = 530;
+var elScore = document.getElementById("score"), elDist = document.getElementById("dist"), elBest = document.getElementById("best");
+var heartEls = document.getElementById("lives").querySelectorAll("svg");
+var overlay = document.getElementById("overlay");
+var startPanel = document.getElementById("startPanel"), overPanel = document.getElementById("overPanel");
+var pauseTip = document.getElementById("pauseTip");
+
+function resize() {
+  var cssW = Math.min(window.innerWidth, 540);
+  var cssH = Math.max(320, window.innerHeight - 92); // 预留 HUD + 页脚
+  VH = clamp(Math.round(VW * cssH / cssW), 540, 960);
+  anchorY = Math.round(VH * 0.74);
+  canvas.width = VW * dpr; canvas.height = VH * dpr;
+  canvas.style.width = cssW + "px";
+  canvas.style.height = Math.min(Math.round(VH / VW * cssW), cssH) + "px";
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener("resize", resize);
+resize();
+
+// ---------- 存档（全部 try/catch 包裹） ----------
+var bestScore = 0, bestDist = 0, muted = false;
+try {
+  bestScore = parseInt(localStorage.getItem("rr_best_score") || "0", 10) || 0;
+  bestDist = parseInt(localStorage.getItem("rr_best_dist") || "0", 10) || 0;
+  muted = localStorage.getItem("rr_muted") === "1";
+} catch (e) {}
+
+// ---------- 音效：WebAudio 全合成，流水白噪声随速度变化 ----------
+var actx = null, master = null, waterGain = null, waterFilter = null;
+function audioInit() {
+  if (actx) return;
+  try {
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    actx = new AC();
+    master = actx.createGain();
+    master.gain.value = muted ? 0 : 1;
+    master.connect(actx.destination);
+    var len = actx.sampleRate * 2;
+    var buf = actx.createBuffer(1, len, actx.sampleRate);
+    var d = buf.getChannelData(0);
+    for (var i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    var src = actx.createBufferSource();
+    src.buffer = buf; src.loop = true;
+    waterFilter = actx.createBiquadFilter();
+    waterFilter.type = "lowpass"; waterFilter.frequency.value = 500;
+    waterGain = actx.createGain(); waterGain.gain.value = 0;
+    src.connect(waterFilter); waterFilter.connect(waterGain); waterGain.connect(master);
+    src.start();
+  } catch (e) { actx = null; }
+}
+function audioUnlock() { audioInit(); try { if (actx && actx.state === "suspended") actx.resume(); } catch (e) {} }
+function tone(f0, f1, dur, type, g, when) {
+  if (!actx || muted) return;
+  try {
+    var t = actx.currentTime + (when || 0);
+    var o = actx.createOscillator(), gn = actx.createGain();
+    o.type = type || "sine";
+    o.frequency.setValueAtTime(f0, t);
+    if (f1 && f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+    gn.gain.setValueAtTime(g || 0.1, t);
+    gn.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(gn); gn.connect(master);
+    o.start(t); o.stop(t + dur + 0.02);
+  } catch (e) {}
+}
+function splashNoise(dur, fc, g) { // 撞击/漩涡的水花噪声
+  if (!actx || muted) return;
+  try {
+    var n = Math.floor(actx.sampleRate * dur);
+    var buf = actx.createBuffer(1, n, actx.sampleRate);
+    var d = buf.getChannelData(0);
+    for (var i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    var s = actx.createBufferSource(); s.buffer = buf;
+    var f = actx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = fc;
+    var gn = actx.createGain(); gn.gain.value = g;
+    s.connect(f); f.connect(gn); gn.connect(master);
+    s.start();
+  } catch (e) {}
+}
+var sfx = {
+  start: function () { tone(440, 660, 0.15, "triangle", 0.1); tone(660, 880, 0.18, "triangle", 0.1, 0.12); },
+  hit: function () { tone(120, 45, 0.3, "sawtooth", 0.16); splashNoise(0.35, 500, 0.25); },
+  bottle: function () { tone(660, 660, 0.09, "sine", 0.1); tone(990, 990, 0.14, "sine", 0.1, 0.09); },
+  coin: function () { tone(1250, 1650, 0.07, "square", 0.05); },
+  fish: function () { tone(520, 700, 0.06, "sine", 0.08); tone(700, 880, 0.06, "sine", 0.08, 0.06); },
+  whirl: function () { tone(420, 70, 0.8, "sawtooth", 0.09); splashNoise(0.7, 300, 0.12); },
+  release: function () { tone(300, 500, 0.12, "triangle", 0.08); },
+  life: function () { tone(523, 523, 0.1, "triangle", 0.1); tone(659, 659, 0.1, "triangle", 0.1, 0.1); tone(784, 784, 0.16, "triangle", 0.1, 0.2); },
+  over: function () { tone(330, 330, 0.16, "sawtooth", 0.09); tone(262, 262, 0.16, "sawtooth", 0.09, 0.16); tone(196, 150, 0.4, "sawtooth", 0.1, 0.32); }
+};
+
+// ---------- 平台事件（域名守卫，仅 crazygames 域生效） ----------
+function portalStart() {
+  try {
+    if (window.__portal === "crazygames" && window.CrazyGames && window.CrazyGames.SDK)
+      window.CrazyGames.SDK.game.gameplayStart();
+  } catch (e) {}
+}
+function portalStop() {
+  try {
+    if (window.__portal === "crazygames" && window.CrazyGames && window.CrazyGames.SDK) {
+      window.CrazyGames.SDK.game.gameplayStop();
+      window.CrazyGames.SDK.game.happytime();
+    }
+  } catch (e) {}
+}
+
+// ---------- 游戏状态 ----------
+var state = "START"; // START | PLAY | OVER
+var paused = false;
+var dist = 0, collectPts = 0, lives = 3, nextLifeAt = 500;
+var world = makeWorld((Math.random() * 1e9) >>> 0);
+world.ensure(VH + 600);
+var ws = newWhirlState();
+var raft = { x: VW / 2, tx: VW / 2, tilt: 0, ang: 0, oy: 0, ph: 0 };
+var shake = 0, hzImmune = 0, wakeT = 0, tNow = 0;
+var particles = [], popups = [], wake = [];
+var keys = { l: false, r: false }, dragging = false;
+var LETTERS = ["DAY 42", "SEND NEWS", "HELLO...", "MISS YOU", "STILL AFLOAT", "NORTH STAR", "HELP US", "NEW LAND?"];
+
+function meters() { return dist / PPM; }
+function totalScore() { return Math.floor(meters() / 10) + collectPts; }
+function worldToScreenY(wy) { return anchorY - (wy - dist); }
+function logX(o) { return o.x + Math.sin(tNow * o.sp + o.ph) * o.amp; }
+function fishX(c) { return c.x + Math.sin(tNow * 0.8 + c.ph) * 26; }
+
+function pruneWorld() {
+  var cut = dist - 320;
+  while (world.o0 < world.obs.length && world.obs[world.o0].y < cut) world.o0++;
+  while (world.c0 < world.col.length && world.col[world.c0].y < cut - 140) world.c0++;
+  while (world.t0 < world.trees.length && world.trees[world.t0].y < cut) world.t0++;
+  if (world.o0 > 500) { world.obs = world.obs.slice(world.o0); world.o0 = 0; }
+  if (world.c0 > 500) { world.col = world.col.slice(world.c0); world.c0 = 0; }
+  if (world.t0 > 500) { world.trees = world.trees.slice(world.t0); world.t0 = 0; }
+  while (world.bands.length > 3 && world.bands[1].y1 < cut) world.bands.shift();
+}
+
+function popup(x, y, text, color, size, it) { popups.push({ x: x, y: y, text: text, color: color, size: size || 14, life: 1.15, it: !!it }); }
+function splash(x, y, n) {
+  for (var i = 0; i < n; i++) {
+    var a = Math.random() * 6.283, s = 40 + Math.random() * 130;
+    particles.push({ x: x, y: y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.4 + Math.random() * 0.25, r: 1.5 + Math.random() * 2.5 });
+  }
+}
+
+var hudScore = -1, hudDist = -1, hudBest = -1;
+function updateHUD(force) {
+  var sc = totalScore(), dm = Math.floor(meters());
+  if (force || sc !== hudScore) { hudScore = sc; elScore.textContent = sc; }
+  if (force || dm !== hudDist) { hudDist = dm; elDist.textContent = dm; }
+  if (force || bestScore !== hudBest) { hudBest = bestScore; elBest.textContent = bestScore; }
+}
+function updateHearts() {
+  for (var i = 0; i < heartEls.length; i++) heartEls[i].classList.toggle("dim", i >= lives);
+}
+
+function startRun() {
+  world = makeWorld((Math.random() * 1e9) >>> 0);
+  world.ensure(VH + 600);
+  ws = newWhirlState();
+  dist = 0; collectPts = 0; lives = 3; nextLifeAt = 500;
+  raft.x = VW / 2; raft.tx = VW / 2; raft.oy = 0; raft.ang = 0; raft.tilt = 0;
+  particles = []; popups = []; wake = [];
+  shake = 0; hzImmune = 0; dragging = false;
+  paused = false; pauseTip.style.display = "none";
+  overlay.style.display = "none";
+  updateHearts(); updateHUD(true);
+  state = "PLAY";
+  portalStart();
+  sfx.start();
+}
+function gameOver() {
+  state = "OVER";
+  var sc = totalScore(), m = Math.floor(meters()), nb = false;
+  if (sc > bestScore) { bestScore = sc; nb = true; try { localStorage.setItem("rr_best_score", String(sc)); } catch (e) {} }
+  if (m > bestDist) { bestDist = m; nb = true; try { localStorage.setItem("rr_best_dist", String(m)); } catch (e) {} }
+  document.getElementById("finalScore").textContent = sc;
+  document.getElementById("finalDist").textContent = m + " m traveled";
+  document.getElementById("finalBest").textContent = "BEST " + bestScore + " pts \u00B7 " + bestDist + " m";
+  document.getElementById("newBest").style.display = nb ? "block" : "none";
+  document.getElementById("startBest").textContent = "BEST " + bestScore + " pts \u00B7 " + bestDist + " m";
+  startPanel.style.display = "none"; overPanel.style.display = "block";
+  overlay.style.display = "flex";
+  sfx.over();
+  portalStop();
+}
+
+function onHit(ob, sy) {
+  lives--;
+  hzImmune = HZ_IMMUNE_T;
+  shake = 0.55;
+  splash(raft.x, sy, 16);
+  popup(raft.x, anchorY - 46, ob.t === "rock" ? "CRUNCH! -1" : "THUD! -1", "#ffb0a0", 14);
+  updateHearts();
+  sfx.hit();
+  if (lives <= 0) gameOver();
+}
+
+function update(dt) {
+  var speed = riverSpeedAt(dist);
+  dist += speed * dt;
+  world.ensure(dist + VH + 500);
+  pruneWorld();
+  var lastPhase = ws.phase;
+  stepWhirlState(ws, dt);
+  if (hzImmune > 0) hzImmune -= dt;
+  if (shake > 0) shake -= dt;
+  var rafY = anchorY + raft.oy;
+  var ctrl = ws.phase !== 1; // 吸入旋转期间失控
+  // 操控（键盘或拖拽），失控时忽略输入
+  if (ctrl) {
+    var target = dragging ? raft.tx : (keys.l ? raft.x - 120 : (keys.r ? raft.x + 120 : raft.x));
+    var mv = clamp((target - raft.x) * 10, -330, 330);
+    raft.x += mv * dt;
+    raft.tilt = lerp(raft.tilt, clamp(mv / 330, -1, 1) * 0.16, Math.min(1, dt * 8));
+  } else raft.tilt = lerp(raft.tilt, 0, dt * 4);
+  // 漩涡吸入动画 / 释放
+  if (ws.phase === 1) {
+    var k = Math.min(1, (1 - ws.t / SUCK_T) * 1.8);
+    var ty = worldToScreenY(ws.wyW);
+    raft.x = lerp(raft.x, ws.wx, k);
+    raft.oy = lerp(raft.oy, clamp(ty - anchorY, -VH * 0.3, VH * 0.3), k);
+    raft.ang += dt * 11;
+  } else {
+    if (ws.phase === 2 && lastPhase === 1) { // 刚释放：甩出漩涡外
+      var dir = raft.x >= ws.wx ? 1 : -1;
+      raft.x = ws.wx + dir * (SUCK_R + 20);
+      raft.oy = clamp(worldToScreenY(ws.wyW) - anchorY, -VH * 0.3, VH * 0.3);
+      hzImmune = Math.max(hzImmune, 1.0);
+      popup(raft.x, anchorY - 46, "SPUN OUT!", "#9fd8ff", 13);
+      sfx.release();
+    }
+    raft.oy = lerp(raft.oy, 0, Math.min(1, dt * 5));
+    raft.ang = lerp(raft.ang, Math.round(raft.ang / 6.28318) * 6.28318, Math.min(1, dt * 5));
+    if (ctrl && ws.phase === 0) { // 尝试被吸入
+      var obsA = world.obs;
+      for (var i = world.o0; i < obsA.length; i++) {
+        var o = obsA[i];
+        if (o.t !== "whirl") continue;
+        var sy = worldToScreenY(o.y);
+        if (sy < -100 || sy > VH + 100) continue;
+        if (whirlTrySuck(ws, o.x - raft.x, sy - rafY)) {
+          ws.wx = o.x; ws.wyW = o.y;
+          sfx.whirl(); splash(raft.x, rafY, 10);
+          break;
+        }
+      }
+    }
+  }
+  // 软推离岸边/沙洲（沙滩不扣血，只挡路）
+  if (ws.phase !== 1) {
+    var wyR = dist;
+    var bR = null;
+    for (var bi2 = 0; bi2 < world.bands.length; bi2++) if (wyR >= world.bands[bi2].y0 && wyR < world.bands[bi2].y1) { bR = world.bands[bi2]; break; }
+    if (bR) {
+      var intsR = waterAt(bR, wyR), bestI = intsR[0], bestOv = -1e9;
+      for (var wi = 0; wi < intsR.length; wi++) {
+        var ov = Math.min(raft.x, intsR[wi][1]) - Math.max(raft.x, intsR[wi][0]);
+        if (ov > bestOv) { bestOv = ov; bestI = intsR[wi]; }
+      }
+      raft.x = clamp(raft.x, bestI[0] + RAFT_W / 2 - 6, bestI[1] - RAFT_W / 2 + 6);
+    }
+  }
+  rafY = anchorY + raft.oy;
+  // 障碍碰撞（受伤免疫期内跳过；旋转中跳过）
+  if (ws.phase !== 1 && hzImmune <= 0) {
+    var obsB = world.obs;
+    for (var i2 = world.o0; i2 < obsB.length; i2++) {
+      var ob = obsB[i2];
+      var sy2 = worldToScreenY(ob.y);
+      if (sy2 > VH + 120) break;
+      if (sy2 < -120) continue;
+      var hit = false;
+      if (ob.t === "rock") hit = hitRock(raft.x, rafY, { x: ob.x, y: sy2, r: ob.r });
+      else if (ob.t === "log") hit = hitLog(raft.x, rafY, { x: logX(ob), y: sy2, w: ob.w, h: ob.h });
+      if (hit) { onHit(ob, sy2); break; }
+    }
+  }
+  // 收集物
+  var colA = world.col;
+  for (var j2 = world.c0; j2 < colA.length; j2++) {
+    var c = colA[j2];
+    if (c.done) continue;
+    var cy2 = worldToScreenY(c.y);
+    if (cy2 > VH + 90) break;
+    var cx2 = c.t === "fish" ? fishX(c) : c.x;
+    var dx2 = cx2 - raft.x, dy2 = cy2 - rafY;
+    var rad = c.t === "bottle" ? 26 : (c.t === "coin" ? 22 : 30);
+    if (dx2 * dx2 + dy2 * dy2 < rad * rad) {
+      c.done = true;
+      if (c.t === "bottle") {
+        collectPts += 5;
+        popup(raft.x, rafY - 40, "+5 \u201C" + LETTERS[Math.floor(Math.random() * LETTERS.length)] + "\u201D", "#9fe8a8", 13, true);
+        sfx.bottle();
+      } else if (c.t === "coin") {
+        collectPts += 1;
+        popup(cx2, cy2 - 14, "+1", "#ffd257", 12);
+        sfx.coin();
+      } else {
+        collectPts += 2;
+        popup(cx2, cy2 - 14, "+2", "#ffab7a", 13);
+        sfx.fish();
+      }
+    }
+  }
+  // 里程碑：每 500m 回 1 命（上限 3）
+  if (meters() >= nextLifeAt) {
+    nextLifeAt += 500;
+    if (lives < 3) { lives++; updateHearts(); popup(raft.x, anchorY - 60, "LIFE RESTORED!", "#7dffa8", 15); }
+    else popup(raft.x, anchorY - 60, "MILESTONE " + Math.floor(meters()) + " M", "#7dffa8", 13);
+    sfx.life();
+  }
+  // 尾迹
+  wakeT -= dt;
+  if (wakeT <= 0) {
+    wakeT = 0.045;
+    wake.push({ x: raft.x + (Math.random() * 2 - 1) * 8, y: rafY + 26, r: 4 + Math.random() * 3, a: 0.5, vx: (Math.random() * 2 - 1) * 10 });
+    if (wake.length > 90) wake.shift();
+  }
+  raft.ph += dt * (1.4 + speed / 160); // 划桨频率随速度
+  updateHUD(false);
+}
+
+function updateFX(dt) {
+  var speed = riverSpeedAt(dist);
+  for (var i = wake.length - 1; i >= 0; i--) {
+    var w = wake[i];
+    w.y += speed * dt * 0.95; w.r += 24 * dt; w.a -= 1.5 * dt; w.x += w.vx * dt;
+    if (w.a <= 0) wake.splice(i, 1);
+  }
+  for (var j = particles.length - 1; j >= 0; j--) {
+    var p = particles[j];
+    p.x += p.vx * dt; p.y += p.vy * dt; p.vx -= p.vx * 3 * dt; p.vy -= p.vy * 3 * dt; p.life -= dt;
+    if (p.life <= 0) particles.splice(j, 1);
+  }
+  for (var k = popups.length - 1; k >= 0; k--) {
+    var f = popups[k];
+    f.y -= 34 * dt; f.life -= dt;
+    if (f.life <= 0) popups.splice(k, 1);
+  }
+}
+
+// ---------- 渲染 ----------
+function hsh(n) { var s = Math.sin(n * 127.1) * 43758.5453; return s - Math.floor(s); }
+function roundRectPath(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+function bandAt(wy) {
+  var bs = world.bands;
+  for (var i = 0; i < bs.length; i++) if (wy >= bs[i].y0 && wy < bs[i].y1) return bs[i];
+  return null;
+}
+
+function drawRipples() {
+  ctx.lineWidth = 1.5;
+  var sp = 90, n0 = Math.floor((dist - 60) / sp), n = Math.ceil(VH / sp) + 3;
+  ctx.strokeStyle = "rgba(255,255,255,.10)";
+  for (var i = 0; i < n; i++) {
+    var wy = (n0 + i) * sp, sy = worldToScreenY(wy);
+    ctx.beginPath();
+    for (var x = 0; x <= VW; x += 24) {
+      var yy = sy + Math.sin(x * 0.045 + tNow * 1.4 + wy * 0.07) * 3.2;
+      if (x === 0) ctx.moveTo(x, yy); else ctx.lineTo(x, yy);
+    }
+    ctx.stroke();
+  }
+  var sp2 = 47, m0 = Math.floor((dist - 60) / sp2), m = Math.ceil(VH / sp2) + 3;
+  ctx.strokeStyle = "rgba(255,255,255,.055)";
+  for (var j = 0; j < m; j++) {
+    var wy2 = (m0 + j) * sp2, sy2 = worldToScreenY(wy2);
+    ctx.beginPath();
+    for (var x2 = 0; x2 <= VW; x2 += 30) {
+      var yy2 = sy2 + Math.sin(x2 * 0.06 - tNow * 1.8 + wy2 * 0.11) * 2.4;
+      if (x2 === 0) ctx.moveTo(x2, yy2); else ctx.lineTo(x2, yy2);
+    }
+    ctx.stroke();
+  }
+}
+function drawFlowLines() { // 流速线：比水流更快的细线
+  var speed = riverSpeedAt(dist);
+  ctx.strokeStyle = "rgba(255,255,255,.09)";
+  ctx.lineWidth = 2;
+  var span = VH + 90;
+  for (var k = 0; k < 18; k++) {
+    var x = hsh(k * 3.7) * VW;
+    var y = ((hsh(k * 7.3) * span + tNow * speed * 1.3) % span + span) % span - 45;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 24 + hsh(k) * 14); ctx.stroke();
+  }
+}
+function drawFarTrees() { // 视差远景林带（0.55 倍速）
+  ctx.fillStyle = "#17513a";
+  var span = VH + 140;
+  for (var k = 0; k < 26; k++) {
+    var x = (k % 2 === 0) ? hsh(k) * 44 : VW - hsh(k) * 44;
+    var yy = ((hsh(k + 0.5) * span - dist * 0.55) % span + span) % span - 70;
+    ctx.beginPath(); ctx.arc(x, yy, 9 + hsh(k + 0.9) * 10, 0, 6.2832); ctx.fill();
+  }
+}
+function drawLand() { // 两岸沙滩 + 沙洲（岛）
+  var step = 26, rows = [];
+  for (var sy = -step; sy <= VH + step; sy += step) {
+    var wy = dist + (anchorY - sy);
+    rows.push([sy, waterAt(bandAt(wy) || world.bands[0], wy)]);
+  }
+  ctx.fillStyle = "#e7d29b";
+  ctx.beginPath(); ctx.moveTo(-30, -step);
+  for (var i = 0; i < rows.length; i++) ctx.lineTo(rows[i][1][0][0] - 6, rows[i][0]);
+  ctx.lineTo(-30, VH + step); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(VW + 30, -step);
+  for (var j = 0; j < rows.length; j++) ctx.lineTo(rows[j][1][rows[j][1].length - 1][1] + 6, rows[j][0]);
+  ctx.lineTo(VW + 30, VH + step); ctx.closePath(); ctx.fill();
+  for (var q = 0; q < rows.length - 1; q++) { // 沙洲逐段补面
+    if (rows[q][1].length === 2 && rows[q + 1][1].length === 2) {
+      ctx.beginPath();
+      ctx.moveTo(rows[q][1][0][1] + 6, rows[q][0]);
+      ctx.lineTo(rows[q][1][1][0] - 6, rows[q][0]);
+      ctx.lineTo(rows[q + 1][1][1][0] - 6, rows[q + 1][0]);
+      ctx.lineTo(rows[q + 1][1][0][1] + 6, rows[q + 1][0]);
+      ctx.closePath(); ctx.fill();
+    }
+  }
+  ctx.strokeStyle = "rgba(120,90,40,.35)"; ctx.lineWidth = 2; // 湿边
+  ctx.beginPath();
+  for (var a = 0; a < rows.length; a++) { var ax = rows[a][1][0][0] - 6; if (a === 0) ctx.moveTo(ax, rows[a][0]); else ctx.lineTo(ax, rows[a][0]); }
+  ctx.stroke();
+  ctx.beginPath();
+  for (var b2 = 0; b2 < rows.length; b2++) { var bx = rows[b2][1][rows[b2][1].length - 1][1] + 6; if (b2 === 0) ctx.moveTo(bx, rows[b2][0]); else ctx.lineTo(bx, rows[b2][0]); }
+  ctx.stroke();
+}
+function drawTrees() {
+  var tr = world.trees;
+  for (var i = world.t0; i < tr.length; i++) {
+    var t = tr[i], sy = worldToScreenY(t.y);
+    if (sy > VH + 30) break;
+    if (sy < -30) continue;
+    ctx.fillStyle = "rgba(20,60,40,.4)";
+    ctx.beginPath(); ctx.arc(t.x + 2, sy + 3, t.r, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = t.g < 0.5 ? "#2c7a4b" : "#3a8f5a";
+    ctx.beginPath(); ctx.arc(t.x, sy, t.r, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,.12)";
+    ctx.beginPath(); ctx.arc(t.x - t.r * 0.3, sy - t.r * 0.3, t.r * 0.45, 0, 6.2832); ctx.fill();
+  }
+}
+function drawCollectibles() {
+  var colA = world.col;
+  for (var i = world.c0; i < colA.length; i++) {
+    var c = colA[i];
+    if (c.done) continue;
+    var sy = worldToScreenY(c.y);
+    if (sy > VH + 40) break;
+    if (sy < -40) continue;
+    if (c.t === "bottle") {
+      var bob = Math.sin(tNow * 2.4 + c.y * 0.1) * 2;
+      ctx.save(); ctx.translate(c.x, sy + bob); ctx.rotate(Math.sin(tNow + c.y) * 0.25);
+      ctx.fillStyle = "#2f9e5f"; roundRectPath(-6, -10, 12, 20, 4); ctx.fill();
+      ctx.fillStyle = "#5cc788"; roundRectPath(-4.5, -8.5, 4, 12, 2); ctx.fill();
+      ctx.fillStyle = "#e9f5e9"; ctx.fillRect(-2.5, -5, 5, 7); // 信纸
+      ctx.fillStyle = "#b98a4e"; roundRectPath(-2.5, -14, 5, 5, 1.5); ctx.fill(); // 木塞
+      ctx.restore();
+    } else if (c.t === "coin") {
+      var sx2 = Math.abs(Math.sin(tNow * 3 + c.y * 0.13)) * 0.75 + 0.25;
+      ctx.save(); ctx.translate(c.x, sy); ctx.scale(sx2, 1);
+      ctx.fillStyle = "#ffd257"; ctx.beginPath(); ctx.arc(0, 0, 8, 0, 6.2832); ctx.fill();
+      ctx.strokeStyle = "#c9992b"; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = "#ffe9a8"; ctx.beginPath(); ctx.arc(0, 0, 3.5, 0, 6.2832); ctx.fill();
+      ctx.restore();
+    } else { // 鱼群（3 条）
+      var fx = fishX(c);
+      for (var k = 0; k < 3; k++) {
+        var ox = [-10, 10, 0][k], oy = [-6, -2, 8][k];
+        var wig = Math.sin(tNow * 5 + k * 2 + c.ph) * 2;
+        ctx.save(); ctx.translate(fx + ox, sy + oy + wig);
+        var flip = Math.cos(tNow * 0.8 + c.ph) >= 0 ? 1 : -1; ctx.scale(flip, 1);
+        ctx.fillStyle = "#ff8a4a";
+        ctx.beginPath(); ctx.ellipse(0, 0, 7, 3.4, 0, 0, 6.2832); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(-6, 0); ctx.lineTo(-11, -3.5); ctx.lineTo(-11, 3.5); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#402314"; ctx.beginPath(); ctx.arc(4, -0.8, 1, 0, 6.2832); ctx.fill();
+        ctx.restore();
+      }
+    }
+  }
+}
+function drawObstacles() {
+  var obsA = world.obs;
+  for (var i = world.o0; i < obsA.length; i++) {
+    var o = obsA[i];
+    var sy = worldToScreenY(o.y);
+    if (sy > VH + 140) break;
+    if (sy < -140) continue;
+    if (o.t === "rock") {
+      ctx.fillStyle = "rgba(10,30,40,.25)";
+      ctx.beginPath(); ctx.ellipse(o.x, sy + o.r * 0.35, o.r * 1.15, o.r * 0.6, 0, 0, 6.2832); ctx.fill();
+      var g = ctx.createLinearGradient(o.x - o.r, sy - o.r, o.x + o.r, sy + o.r);
+      g.addColorStop(0, "#93a0ad"); g.addColorStop(1, "#57626e");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      for (var k = 0; k < 8; k++) {
+        var ang = k * 0.7854, rr = o.r * (0.82 + hsh(o.seed + k) * 0.26);
+        var px = o.x + Math.cos(ang) * rr, py = sy + Math.sin(ang) * rr;
+        if (k === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255," + (0.30 + 0.22 * Math.sin(tNow * 4 + o.seed)) + ")";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(o.x, sy + o.r * 0.45, o.r * 0.95, 0.5, 2.6); ctx.stroke();
+      ctx.beginPath(); ctx.arc(o.x - o.r * 0.3, sy + o.r * 0.6, o.r * 0.7, 0.4, 1.9); ctx.stroke();
+    } else if (o.t === "log") {
+      var lx = logX(o);
+      ctx.save(); ctx.translate(lx, sy); ctx.rotate(Math.sin(tNow * o.sp + o.ph) * 0.06);
+      ctx.fillStyle = "#8a5a2e"; roundRectPath(-o.w / 2, -10, o.w, 20, 9); ctx.fill();
+      ctx.strokeStyle = "rgba(60,35,12,.6)"; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(-o.w / 2 + 12, -3); ctx.lineTo(o.w / 2 - 12, -3); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-o.w / 2 + 18, 4); ctx.lineTo(o.w / 2 - 14, 4); ctx.stroke();
+      ctx.fillStyle = "#a97a45";
+      ctx.beginPath(); ctx.ellipse(-o.w / 2 + 3, 0, 4, 8.5, 0, 0, 6.2832); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(o.w / 2 - 3, 0, 4, 8.5, 0, 0, 6.2832); ctx.fill();
+      ctx.strokeStyle = "rgba(80,50,20,.7)";
+      ctx.beginPath(); ctx.ellipse(-o.w / 2 + 3, 0, 2, 4.5, 0, 0, 6.2832); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(o.w / 2 - 3, 0, 2, 4.5, 0, 0, 6.2832); ctx.stroke();
+      ctx.restore();
+      ctx.strokeStyle = "rgba(255,255,255," + (0.25 + 0.15 * Math.sin(tNow * 5 + o.ph)) + ")";
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(lx - o.w * 0.3, sy + 14, 7, 0.4, 2.4); ctx.stroke();
+      ctx.beginPath(); ctx.arc(lx + o.w * 0.35, sy + 15, 5, 0.4, 2.2); ctx.stroke();
+    } else { // 漩涡
+      var rot = tNow * 3.2;
+      var gr = ctx.createRadialGradient(o.x, sy, 2, o.x, sy, 30);
+      gr.addColorStop(0, "#0a2f47"); gr.addColorStop(0.7, "#123f5c"); gr.addColorStop(1, "rgba(18,63,92,0)");
+      ctx.fillStyle = gr;
+      ctx.beginPath(); ctx.arc(o.x, sy, 30, 0, 6.2832); ctx.fill();
+      ctx.lineCap = "round";
+      for (var a = 0; a < 3; a++) {
+        ctx.strokeStyle = "rgba(191,230,255," + (0.55 - a * 0.13) + ")";
+        ctx.lineWidth = 2.4;
+        var dir2 = a % 2 ? -1 : 1;
+        ctx.beginPath(); ctx.arc(o.x, sy, 8 + a * 7.5, rot * dir2 + a * 2.1, rot * dir2 + a * 2.1 + 2.4); ctx.stroke();
+      }
+      ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 8]); ctx.lineDashOffset = -rot * 8;
+      ctx.beginPath(); ctx.arc(o.x, sy, 34, 0, 6.2832); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+  ctx.lineCap = "butt";
+}
+function drawWake() {
+  ctx.fillStyle = "#ffffff";
+  for (var i = 0; i < wake.length; i++) {
+    var w = wake[i];
+    ctx.globalAlpha = Math.max(0, w.a) * 0.5;
+    ctx.beginPath(); ctx.arc(w.x, w.y, w.r, 0, 6.2832); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+function drawRaft() {
+  var x = raft.x, y = anchorY + raft.oy;
+  ctx.save();
+  ctx.translate(x, y);
+  // 船头浪花（朝上游 = 屏幕上方）
+  ctx.fillStyle = "rgba(255,255,255,.25)";
+  ctx.beginPath(); ctx.ellipse(-9, -RAFT_L / 2 - 3, 5.5, 2.8, 0, 0, 6.2832); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(9, -RAFT_L / 2 - 3, 5.5, 2.8, 0, 0, 6.2832); ctx.fill();
+  ctx.rotate(raft.ang);
+  ctx.rotate(raft.tilt);
+  ctx.fillStyle = "rgba(8,30,42,.3)";
+  ctx.beginPath(); ctx.ellipse(0, 6, RAFT_W * 0.62, RAFT_L * 0.56, 0, 0, 6.2832); ctx.fill();
+  roundRectPath(-RAFT_W / 2, -RAFT_L / 2, RAFT_W, RAFT_L, 9);
+  ctx.fillStyle = "#a9743f"; ctx.fill();
+  ctx.strokeStyle = "#6e4a24"; ctx.lineWidth = 2.5; ctx.stroke();
+  ctx.strokeStyle = "rgba(80,50,20,.5)"; ctx.lineWidth = 1.5;
+  for (var i = 1; i < 4; i++) {
+    ctx.beginPath(); ctx.moveTo(-RAFT_W / 2 + 3, -RAFT_L / 2 + i * RAFT_L / 4); ctx.lineTo(RAFT_W / 2 - 3, -RAFT_L / 2 + i * RAFT_L / 4); ctx.stroke();
+  }
+  var bob = Math.sin(tNow * 6) * 1.2;
+  ctx.fillStyle = "#e8564e"; // 小人身体
+  ctx.beginPath(); ctx.ellipse(0, -2 + bob, 7.5, 9, 0, 0, 6.2832); ctx.fill();
+  ctx.fillStyle = "#f2c894"; // 头
+  ctx.beginPath(); ctx.arc(0, -14 + bob, 5.5, 0, 6.2832); ctx.fill();
+  var sw = Math.sin(raft.ph * Math.PI); // 桨：左右交替划，频率随速度
+  var side = Math.cos(raft.ph * Math.PI) >= 0 ? 1 : -1;
+  var px = side * (RAFT_W / 2 + 3), py = sw * 16;
+  ctx.strokeStyle = "#5d3d1e"; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(px * 0.4, py * 0.5); ctx.lineTo(px, py); ctx.stroke();
+  ctx.save(); ctx.translate(px, py); ctx.rotate(side * 0.5);
+  ctx.fillStyle = "#7a5228";
+  ctx.beginPath(); ctx.ellipse(0, 0, 4, 7.5, 0, 0, 6.2832); ctx.fill();
+  ctx.restore();
+  ctx.restore();
+}
+function drawParticles() {
+  ctx.fillStyle = "#eaf7ff";
+  for (var i = 0; i < particles.length; i++) {
+    var p = particles[i];
+    ctx.globalAlpha = Math.max(0, Math.min(1, p.life / 0.4));
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.2832); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+function drawPopups() {
+  ctx.textAlign = "center";
+  for (var i = 0; i < popups.length; i++) {
+    var f = popups[i];
+    ctx.globalAlpha = Math.max(0, Math.min(1, f.life / 0.5));
+    ctx.fillStyle = f.color;
+    ctx.font = (f.it ? "italic " : "") + "800 " + f.size + "px sans-serif";
+    ctx.fillText(f.text, f.x, f.y);
+  }
+  ctx.globalAlpha = 1;
+}
+function render() {
+  ctx.save();
+  if (shake > 0) { var m2 = shake * 14; ctx.translate((Math.random() * 2 - 1) * m2, (Math.random() * 2 - 1) * m2); }
+  var g = ctx.createLinearGradient(0, 0, 0, VH);
+  g.addColorStop(0, "#1b6b8f"); g.addColorStop(0.5, "#1a5f84"); g.addColorStop(1, "#15506f");
+  ctx.fillStyle = g; ctx.fillRect(-24, -24, VW + 48, VH + 48);
+  drawRipples();
+  drawFlowLines();
+  drawFarTrees();
+  drawLand();
+  drawTrees();
+  drawCollectibles();
+  drawObstacles();
+  drawWake();
+  drawRaft();
+  drawParticles();
+  drawPopups();
+  ctx.restore();
+}
+
+// ---------- 水声随速度 ----------
+function updateWaterAudio() {
+  if (!waterGain) return;
+  try {
+    var target = (muted || state !== "PLAY" || paused) ? 0 : 0.035 + riverSpeedAt(dist) / 345 * 0.055;
+    waterGain.gain.value += (target - waterGain.gain.value) * 0.08;
+    if (waterFilter) waterFilter.frequency.value = 380 + riverSpeedAt(dist) * 1.35;
+  } catch (e) {}
+}
+
+// ---------- 主循环（dt 上限 0.05s 防切页跳变） ----------
+var last = 0;
+function frame(t) {
+  var dt = Math.max(0, Math.min((t - last) / 1000 || 0, 0.05)); // dt 夹在 [0, 0.05]s
+  last = t; tNow = t / 1000;
+  if (!paused) {
+    if (state === "PLAY") update(dt);
+    else { // 开始/结算画面：木筏随流慢漂
+      dist += 60 * dt;
+      world.ensure(dist + VH + 400);
+      pruneWorld();
+      raft.oy = lerp(raft.oy, 0, dt * 5);
+      raft.ph += dt * 1.2;
+      wakeT -= dt;
+      if (wakeT <= 0) {
+        wakeT = 0.06;
+        wake.push({ x: raft.x + (Math.random() * 2 - 1) * 8, y: anchorY + 26, r: 4, a: 0.4, vx: (Math.random() * 2 - 1) * 8 });
+        if (wake.length > 90) wake.shift();
+      }
+    }
+    updateFX(dt);
+  }
+  render();
+  updateWaterAudio();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// ---------- 输入（桌面 + 触屏） ----------
+function canvasX(clientX) {
+  var r = canvas.getBoundingClientRect();
+  return (clientX - r.left) / r.width * VW;
+}
+function tryResume() {
+  if (paused) { paused = false; pauseTip.style.display = "none"; return true; }
+  return false;
+}
+canvas.addEventListener("pointerdown", function (e) {
+  e.preventDefault(); audioUnlock();
+  if (tryResume()) return;
+  dragging = true; raft.tx = canvasX(e.clientX);
+});
+canvas.addEventListener("pointermove", function (e) {
+  if (dragging) raft.tx = canvasX(e.clientX);
+});
+window.addEventListener("pointerup", function () { dragging = false; });
+window.addEventListener("pointercancel", function () { dragging = false; });
+canvas.addEventListener("touchmove", function (e) { e.preventDefault(); }, { passive: false }); // 防页面滚动
+canvas.addEventListener("touchstart", function (e) { e.preventDefault(); }, { passive: false });
+document.addEventListener("keydown", function (e) {
+  audioUnlock();
+  if (tryResume()) return;
+  if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") { keys.l = true; e.preventDefault(); }
+  if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") { keys.r = true; e.preventDefault(); }
+  if ((e.key === "Enter" || e.key === " ") && state !== "PLAY") { e.preventDefault(); startRun(); }
+});
+document.addEventListener("keyup", function (e) {
+  if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") keys.l = false;
+  if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") keys.r = false;
+});
+document.getElementById("playBtn").addEventListener("click", function (e) { e.stopPropagation(); audioUnlock(); startRun(); });
+document.getElementById("againBtn").addEventListener("click", function (e) { e.stopPropagation(); audioUnlock(); startRun(); });
+
+// ---------- 静音按钮 ----------
+var icoOn = document.getElementById("icoOn"), icoOff = document.getElementById("icoOff");
+function applyMute() {
+  if (master) { try { master.gain.value = muted ? 0 : 1; } catch (e) {} }
+  icoOn.style.display = muted ? "none" : "block";
+  icoOff.style.display = muted ? "block" : "none";
+}
+document.getElementById("muteBtn").addEventListener("click", function (e) {
+  e.stopPropagation();
+  muted = !muted;
+  try { localStorage.setItem("rr_muted", muted ? "1" : "0"); } catch (err) {}
+  audioUnlock(); applyMute();
+});
+
+// ---------- 切后台自动暂停 ----------
+document.addEventListener("visibilitychange", function () {
+  if (document.hidden && state === "PLAY") { paused = true; pauseTip.style.display = "block"; }
+  else if (!document.hidden && paused) { paused = false; pauseTip.style.display = "none"; } // 回到页面自动续玩
+});
+
+// ---------- 初始化 ----------
+elBest.textContent = bestScore;
+document.getElementById("startBest").textContent = "BEST " + bestScore + " pts \u00B7 " + bestDist + " m";
+applyMute();
+updateHearts(); updateHUD(true);
+// 调试/测试钩子（不影响游戏逻辑）
+window.__rr = {
+  get state() { return state; }, get dist() { return dist; }, get score() { return totalScore(); },
+  get lives() { return lives; }, get meters() { return meters(); },
+  get ws() { return ws; }, get raft() { return raft; }, get world() { return world; }
+};
+</script>
+</body>
+</html>
